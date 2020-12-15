@@ -1,4 +1,8 @@
 #!/Library/Frameworks/Python.framework/Versions/3.6/bin/python3
+#
+# NOTE: Change the above line to point to your systems python3 interpreter
+# Requires Python3.5 minimum.
+#
 # MPS ElectroLab
 # Description:  Generating xgcode from gcode for FlashForge Creator MAX
 # License:  GPLv3
@@ -62,10 +66,11 @@ On your filament settings, use 100% fan after layer 1 for PLA.
 '''
 
 class GXProcessor(object):
-    """
+    '''
     Generates xgcode 1.0 standard with the BMP at the front of the file for FlashForge Creator MAX.
-    Using a default BMP, but this is usually the BMP of the part being printed.
-    """
+    Using a default BMP (My logo), but this is usually the BMP of the part being printed.
+    You can point to a generated BMP of the part or your own.
+    '''
     GCODE_START_OFFSET = 14512
     BMP_START_OFFSET = 58
     BMP_LENGTH = 14454
@@ -89,6 +94,13 @@ class GXProcessor(object):
             return fd.read()
 
     def encode(self):
+        '''
+        You should set the variables on the GXProcessor object before calling encode. Otherwise the defaults are used.
+        If you use default, it may show up on your printer as 0 print time, etc.
+        If you build a plugin for your slicer, you can easily derive these and set them.
+        You will see the main for this module is lazy, and I don't bother setting these for the printer to show. THey
+        are not necessary for the function of the printer, at least not that I have found.
+        '''
         buff = (self.version)
         buff += struct.pack("<4i",
                             0,
@@ -118,6 +130,10 @@ class GXProcessor(object):
 
 
 if len(sys.argv) != 2:
+    '''
+    Pass in the input *.gcode file. Output file will have '.gx' appended to end of file.
+    Example: If input file named abc.gcode then output file will be named abc.gcode.gx
+    '''
     print('Usage: ffcm_pp.py <gcode_input_file>')
     sys.exit()
 
@@ -125,6 +141,7 @@ with open(sys.argv[1]) as fr:
     with open('{}.ffcm'.format(sys.argv[1]), 'w') as fw:
         gcode = []
         for line in fr:
+            ''' Replacing the codes that FlashForge Creator MAX does not understand '''
             fw.write(line.replace('M126', 'M106').replace('M127', 'M107'))
         fw.close()
         fr.close()
@@ -132,6 +149,7 @@ with open(sys.argv[1]) as fr:
             g = GXProcessor()
             g.gcode = fd.read()
             with open('{}.gx'.format(sys.argv[1]),'wb') as fw:
+                ''' Encoding the gcode into xgcode, with the BMP and xgcode header at the front of the gcode '''
                 fw.write(g.encode())
         os.remove('{}.ffcm'.format(sys.argv[1]))
 
