@@ -75,10 +75,6 @@ class GXProcessor(object):
     BMP_START_OFFSET = 58
     GCODE_START_OFFSET = BMP_SIZE + BMP_START_OFFSET
 
-    #GCODE_START_OFFSET = 14512
-    #BMP_START_OFFSET = 58
-    #BMP_LENGTH = 14454
-
     def __init__(self):
         self.version = b"xgcode 1.0\n\0"
         self.print_time = 0
@@ -96,6 +92,7 @@ class GXProcessor(object):
     def _bmp(self):
         with open('{}/mps_logo.bmp'.format(os.path.dirname(os.path.realpath(__file__))), 'rb') as fd:
             return fd.read()
+
 
     def encode(self):
         '''
@@ -133,27 +130,75 @@ class GXProcessor(object):
         return buff
 
 
-if len(sys.argv) != 2:
-    '''
-    Pass in the input *.gcode file. Output file will have '.gx' appended to end of file.
-    Example: If input file named abc.gcode then output file will be named abc.gcode.gx
-    '''
-    print('Usage: ffcm_pp.py <gcode_input_file>')
-    sys.exit()
+    def decode(self, data):
+        self._data = bytes(data)
+        # First line must be "xgcode 1.0\n"
+        rows = self._data.split(b'\n')
+        if len(rows) < 2:
+            print("gx.py: less than 2 rows")
+            return
+        if rows[0] != b"xgcode 1.0":
+            print("invalid header")
+            return
+        # Header is first line + \n + second line
+        header = rows[0] + b'\n' + rows[1] + b'\n'
+        self._header = header
+        # Version information
+        offset = 0
+        self.version = struct.unpack_from("<12s", header, offset)[0]
+        offset = len(self.version)
+        # Header constants
+        cons = struct.unpack_from("<4l", header, offset)
+        self.bitmap_start = cons[1]
+        self.gcode_start = cons[2]
+        # Metadata
+        offset = 0x1C
+        t, f1, f2, met = struct.unpack_from("<lllh", header, offset)
+        self.print_time = t
+        self.filament_usage, self.filament_usage_left = f1, f2
+        self.multi_extruder_type = met
+        offset = 0x2A
+        lh, _, sh, spd, bt, et1, et2 = struct.unpack_from("<7h", header, offset)
+        self.layer_height = lh
+        self.shells = sh
+        self.print_speed = spd
+        self.bed_temperature = bt
+        self.print_temperature = et1
+        self.print_temperature_left = et2
+        # Bitmap
+        self.bmp = self._data[58:14512]
+        if len(self.bmp) != 14454:
+            raise "BMP length is invalid: %d" % len(self.bmp)
+        self.gcode = self._data[self.gcode_start:]
 
-with open(sys.argv[1]) as fr:
-    with open('{}.ffcm'.format(sys.argv[1]), 'w') as fw:
-        gcode = []
-        for line in fr:
-            ''' Replacing the codes that FlashForge Creator MAX does not understand '''
-            fw.write(line.replace('M126', 'M106').replace('M127', 'M107'))
-        fw.close()
-        fr.close()
-        with open('{}.ffcm'.format(sys.argv[1]), 'rb') as fd:
-            g = GXProcessor()
-            g.gcode = fd.read()
-            with open('{}.gx'.format(sys.argv[1]),'wb') as fw:
-                ''' Encoding the gcode into xgcode, with the BMP and xgcode header at the front of the gcode '''
-                fw.write(g.encode())
-        os.remove('{}.ffcm'.format(sys.argv[1]))
+    def print_info(self):
+        print('BMP Start = {}, GCODE_START = {}, PRINT_TIME = {}, ME_TYPE = {}, PRINT_SPEED = {}, BED_TEMP = {}, PRINT_TEMP = {}, PRINT_TEMP_LEFT = {}'.format(
+            self.bitmap_start,self.gcode_start, self.print_time, self.multi_extruder_type, self.print_speed, self.bed_temp, self.print_temp, self.print_temp_left
+        ))
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        '''
+        Pass in the input *.gcode file. Output file will have '.gx' appended to end of file.
+        Example: If input file named abc.gcode then output file will be named abc.gcode.gx
+        '''
+        print('Usage: ffcm_pp.py <gcode_input_file>')
+        sys.exit()
+
+    with open(sys.argv[1]) as fr:
+        with open('{}.ffcm'.format(sys.argv[1]), 'w') as fw:
+            gcode = []
+            for line in fr:
+                ''' Replacing the codes that FlashForge Creator MAX does not understand '''
+                fw.write(line.replace('M126', 'M106').replace('M127', 'M107'))
+            fw.close()
+            fr.close()
+            with open('{}.ffcm'.format(sys.argv[1]), 'rb') as fd:
+                g = GXProcessor()
+                g.gcode = fd.read()
+                with open('{}.gx'.format(sys.argv[1]),'wb') as fw:
+                    ''' Encoding the gcode into xgcode, with the BMP and xgcode header at the front of the gcode '''
+                    fw.write(g.encode())
+            os.remove('{}.ffcm'.format(sys.argv[1]))
 
