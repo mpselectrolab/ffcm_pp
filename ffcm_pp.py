@@ -71,9 +71,13 @@ class GXProcessor(object):
     Using a default BMP (My logo), but this is usually the BMP of the part being printed.
     You can point to a generated BMP of the part or your own.
     '''
-    GCODE_START_OFFSET = 14512
+    BMP_SIZE = 13594
     BMP_START_OFFSET = 58
-    BMP_LENGTH = 14454
+    GCODE_START_OFFSET = BMP_SIZE + BMP_START_OFFSET
+
+    #GCODE_START_OFFSET = 14512
+    #BMP_START_OFFSET = 58
+    #BMP_LENGTH = 14454
 
     def __init__(self):
         self.version = b"xgcode 1.0\n\0"
