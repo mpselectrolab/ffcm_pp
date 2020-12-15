@@ -3,4 +3,5 @@
 
 Clone this repo onto you machine with the slicer, then simply point to the ffcm_pp.py file. It loads the interpreter, so it will invoke python3 intepreter for you. You many need to change the source line at the top of the file to point to your python3 intepreter. For slic3r, you will enter it in the post processor field, similar to what is shown below. 
 
+https://github.com/mpselectrolab/ffcm_pp/blob/main/slic3r_post_processor_example_image.png?raw=true
 
