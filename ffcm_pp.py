@@ -25,6 +25,23 @@ Here is some begin, end and tool change code that I use:
 
 Begin GCODE:
 
+;right_extruder_material:
+;layer_height:
+;perimeter_shells:
+;top_solid_layers:
+;bottom_solid_layers:
+;fill_density:
+;fill_pattern:
+;base_print_speed:
+;travel_speed:
+;right_extruder_temperature:
+;left_extruder_temperature:
+;platform_temperature:
+;right_extruder_temperature_raft0:
+;left_extruder_temperature_raft0:
+;right_extruder_temperature_reset:
+;left_extruder_temperature_reset:
+;layer_count:
 M140 S[first_layer_bed_temperature];   Heat bed up to first layer temperature
 M104 S[first_layer_temperature_0] T0;   Set nozzle temperature of Right extruder to first layer temperature
 M104 S[first_layer_temperature_0] T1;   Set nozzle temperature of Left extruder to first layer temperature
@@ -132,18 +149,18 @@ class GXProcessor(object):
 
     def decode(self, data):
         self._data = bytes(data)
-        # First line must be "xgcode 1.0\n"
+        # Header is ascii
         rows = self._data.split(b'\n')
         if len(rows) < 2:
-            print("gx.py: less than 2 rows")
+            print("GX file must be at least 2 lines!")
             return
         if rows[0] != b"xgcode 1.0":
-            print("invalid header")
+            print("Bad file format. Not gcode!")
             return
         # Header is first line + \n + second line
         header = rows[0] + b'\n' + rows[1] + b'\n'
         self._header = header
-        # Version information
+        # The version info
         offset = 0
         self.version = struct.unpack_from("<12s", header, offset)[0]
         offset = len(self.version)
@@ -151,29 +168,30 @@ class GXProcessor(object):
         cons = struct.unpack_from("<4l", header, offset)
         self.bitmap_start = cons[1]
         self.gcode_start = cons[2]
-        # Metadata
+        # get the metadata
         offset = 0x1C
         t, f1, f2, met = struct.unpack_from("<lllh", header, offset)
         self.print_time = t
-        self.filament_usage, self.filament_usage_left = f1, f2
+        self.filament_usage = f1
+        self.filament_usage_left = f2
         self.multi_extruder_type = met
         offset = 0x2A
         lh, _, sh, spd, bt, et1, et2 = struct.unpack_from("<7h", header, offset)
         self.layer_height = lh
         self.shells = sh
         self.print_speed = spd
-        self.bed_temperature = bt
-        self.print_temperature = et1
-        self.print_temperature_left = et2
+        self.bed_temp = bt
+        self.print_temp = et1
+        self.print_temp_left = et2
         # Bitmap
-        self.bmp = self._data[58:14512]
-        if len(self.bmp) != 14454:
+        self.bmp = self._data[self.BMP_START_OFFSET:self.GCODE_START_OFFSET]
+        if len(self.bmp) != self.BMP_SIZE:
             raise "BMP length is invalid: %d" % len(self.bmp)
         self.gcode = self._data[self.gcode_start:]
 
     def print_info(self):
-        print('BMP Start = {}, GCODE_START = {}, PRINT_TIME = {}, ME_TYPE = {}, PRINT_SPEED = {}, BED_TEMP = {}, PRINT_TEMP = {}, PRINT_TEMP_LEFT = {}'.format(
-            self.bitmap_start,self.gcode_start, self.print_time, self.multi_extruder_type, self.print_speed, self.bed_temp, self.print_temp, self.print_temp_left
+        print('Shells = {}, Filament Usage = {}, Filament Usage Left = {}, BMP Start = {}, GCODE_START = {}, PRINT_TIME = {}, ME_TYPE = {}, PRINT_SPEED = {}, BED_TEMP = {}, PRINT_TEMP = {}, PRINT_TEMP_LEFT = {}'.format(
+            self.shells, self.filament_usage, self.filament_usage_left, self.bitmap_start,self.gcode_start, self.print_time, self.multi_extruder_type, self.print_speed, self.bed_temp, self.print_temp, self.print_temp_left
         ))
 
 

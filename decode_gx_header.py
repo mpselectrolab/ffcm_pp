@@ -10,7 +10,7 @@ if __name__ == '__main__':
         print('Usage: decode_gx_header.py <gx_input_file>')
         sys.exit()
 
-    with open('{}.ffcm'.format(sys.argv[1]), 'rb') as fd:
+    with open(sys.argv[1], 'rb') as fd:
         g = ffcm_pp.GXProcessor()
         g.decode(fd.read())
         g.print_info()
